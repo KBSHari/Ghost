@@ -1,0 +1,242 @@
+@let result = plan();
+@let currency = baseCurrency() ?? '';
+
+<section aria-labelledby="rebalancing-trades-title" class="mb-4">
+  <div class="align-items-center d-flex flex-wrap gap-2 mb-2">
+    <h2 class="h4 me-auto mb-0" i18n id="rebalancing-trades-title">
+      Recommended trades
+    </h2>
+    <button
+      mat-stroked-button
+      type="button"
+      [disabled]="result.trades.length === 0"
+      (click)="onExportJson()"
+    >
+      <ng-container i18n>Export JSON</ng-container>
+    </button>
+    <button
+      mat-stroked-button
+      type="button"
+      [disabled]="result.trades.length === 0"
+      (click)="onExportCsv()"
+    >
+      <ng-container i18n>Export CSV</ng-container>
+    </button>
+  </div>
+
+  <p class="small text-body-secondary">
+    <ng-container i18n>Calculated at</ng-container>
+    {{ result.calculatedAt | date: 'medium' : undefined : locale() }}.
+    <ng-container i18n>
+      Prices can change before you place the trades.
+    </ng-container>
+  </p>
+
+  @if (result.message) {
+    <div class="alert alert-info" role="status">{{ result.message }}</div>
+  }
+
+  @if (result.trades.length > 0) {
+    <div class="table-responsive">
+      <table class="align-middle table table-sm">
+        <caption class="visually-hidden" i18n>
+          Recommended trades
+        </caption>
+        <thead>
+          <tr>
+            <th i18n scope="col">Action</th>
+            <th i18n scope="col">Symbol</th>
+            <th class="text-end" i18n scope="col">Quantity</th>
+            <th class="text-end" i18n scope="col">Price</th>
+            <th class="text-end" i18n scope="col">Value</th>
+            <th class="text-end" i18n scope="col">Fee</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (
+            trade of result.trades;
+            track trade.dataSource + '-' + trade.symbol
+          ) {
+            <tr>
+              <td>
+                <span
+                  class="badge"
+                  [class.text-bg-danger]="trade.side === 'SELL'"
+                  [class.text-bg-success]="trade.side === 'BUY'"
+                >
+                  {{ getSideLabel(trade.side) }}
+                </span>
+              </td>
+              <td>
+                {{ trade.name ?? trade.symbol }}
+                <span class="small text-body-secondary">{{
+                  trade.symbol
+                }}</span>
+              </td>
+              <td class="text-end">
+                {{ trade.quantity | number: '1.0-8' : locale() }}
+              </td>
+              <td class="text-end">
+                {{ trade.unitPrice | number: '1.2-6' : locale() }}
+                {{ trade.currency }}
+              </td>
+              <td class="text-end">
+                {{ trade.valueInBaseCurrency | number: '1.2-2' : locale() }}
+                {{ currency }}
+              </td>
+              <td class="text-end">
+                {{ trade.feeInBaseCurrency | number: '1.2-2' : locale() }}
+                {{ currency }}
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+
+  <dl class="row small mb-0 mt-3">
+    <dt class="col-6 col-md-3" i18n>Buys / sells</dt>
+    <dd class="col-6 col-md-3">
+      {{ result.summary.buyCount }} / {{ result.summary.sellCount }}
+    </dd>
+    <dt class="col-6 col-md-3" i18n>Total fees</dt>
+    <dd class="col-6 col-md-3">
+      {{ result.summary.totalFeesInBaseCurrency | number: '1.2-2' : locale() }}
+      {{ currency }}
+    </dd>
+    <dt class="col-6 col-md-3" i18n>Cash before</dt>
+    <dd class="col-6 col-md-3">
+      {{ result.cash.before | number: '1.2-2' : locale() }} {{ currency }}
+    </dd>
+    <dt class="col-6 col-md-3" i18n>Cash after</dt>
+    <dd class="col-6 col-md-3">
+      {{ result.cash.after | number: '1.2-2' : locale() }} {{ currency }}
+    </dd>
+    <dt class="col-6 col-md-3" i18n>Cash reserve</dt>
+    <dd class="col-6 col-md-3">
+      {{ result.cash.reserve | number: '1.2-2' : locale() }} {{ currency }}
+    </dd>
+    <dt class="col-6 col-md-3" i18n>Left over by rounding</dt>
+    <dd class="col-6 col-md-3">
+      {{ result.summary.residualCash | number: '1.2-2' : locale() }}
+      {{ currency }}
+    </dd>
+  </dl>
+</section>
+
+@if (result.warnings.length > 0) {
+  <div class="alert alert-warning" role="alert">
+    <ul class="mb-0">
+      @for (warning of result.warnings; track $index) {
+        <li>{{ warning.message }}</li>
+      }
+    </ul>
+  </div>
+}
+
+@if (result.excludedHoldings.length > 0) {
+  <div class="alert alert-secondary" role="status">
+    <strong i18n>Excluded from the calculation</strong>
+    <ul class="mb-0">
+      @for (holding of result.excludedHoldings; track holding.symbol) {
+        <li>{{ holding.symbol }}: {{ getExcludedReason(holding) }}</li>
+      }
+    </ul>
+  </div>
+}
+
+@if (result.allocationBefore.length > 0) {
+  <section aria-labelledby="rebalancing-allocation-title" class="mb-4">
+    <h2 class="h4" i18n id="rebalancing-allocation-title">Allocation</h2>
+    <div class="table-responsive">
+      <table class="align-middle table table-sm">
+        <caption class="visually-hidden" i18n>
+          Allocation before and after the trades
+        </caption>
+        <thead>
+          <tr>
+            <th i18n scope="col">Level</th>
+            <th i18n scope="col">Target</th>
+            <th class="text-end" i18n scope="col">Before</th>
+            <th class="text-end" i18n scope="col">After</th>
+            <th i18n scope="col">In range after</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (item of result.allocationAfter; track item.level + item.key) {
+            <tr>
+              <td>{{ getLevelLabel(item.level) }}</td>
+              <td>{{ getKeyLabel(item.key) }}</td>
+              <td class="text-end">
+                {{
+                  result.allocationBefore[$index].weight
+                    | number: '1.2-2' : locale()
+                }}%
+              </td>
+              <td class="text-end">
+                {{ item.weight | number: '1.2-2' : locale() }}%
+              </td>
+              <td>
+                @if (item.withinBand === true) {
+                  <ng-container i18n>Yes</ng-container>
+                } @else if (item.withinBand === false) {
+                  <ng-container i18n>No</ng-container>
+                } @else {
+                  <span aria-hidden="true">–</span>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+}
+
+@if (result.sectorChecks.length > 0) {
+  <section aria-labelledby="rebalancing-sector-title" class="mb-4">
+    <h2 class="h4" i18n id="rebalancing-sector-title">Sector exposure</h2>
+    <div class="table-responsive">
+      <table class="align-middle table table-sm">
+        <caption class="visually-hidden" i18n>
+          Sector exposure before and after the trades
+        </caption>
+        <thead>
+          <tr>
+            <th i18n scope="col">Sector</th>
+            <th class="text-end" i18n scope="col">Target</th>
+            <th class="text-end" i18n scope="col">Before</th>
+            <th class="text-end" i18n scope="col">After</th>
+            <th i18n scope="col">In range after</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (check of result.sectorChecks; track check.sector) {
+            <tr>
+              <td>{{ check.sector }}</td>
+              <td class="text-end">
+                {{ check.targetWeight | number: '1.2-2' : locale() }}%
+              </td>
+              <td class="text-end">
+                {{ check.exposureBefore | number: '1.2-2' : locale() }}%
+              </td>
+              <td class="text-end">
+                {{ check.exposureAfter | number: '1.2-2' : locale() }}%
+              </td>
+              <td>
+                @if (check.withinBand === true) {
+                  <ng-container i18n>Yes</ng-container>
+                } @else if (check.withinBand === false) {
+                  <ng-container i18n>No</ng-container>
+                } @else {
+                  <span aria-hidden="true">–</span>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+}

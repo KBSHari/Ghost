@@ -1,5 +1,6 @@
 import { UserService } from '@ghostfolio/client/services/user/user.service';
 import { User } from '@ghostfolio/common/interfaces';
+import { hasPermission, permissions } from '@ghostfolio/common/permissions';
 import { internalRoutes } from '@ghostfolio/common/routes/routes';
 import {
   GfPageTabsComponent,
@@ -19,6 +20,7 @@ import {
   calculatorOutline,
   pieChartOutline,
   scanOutline,
+  swapHorizontalOutline,
   swapVerticalOutline
 } from 'ionicons/icons';
 
@@ -72,6 +74,18 @@ export class PortfolioPageComponent {
               routerLink: internalRoutes.portfolio.subRoutes.xRay.routerLink
             }
           ];
+
+          if (
+            hasPermission(state.user.permissions, permissions.accessRebalancing)
+          ) {
+            this.tabs.push({
+              iconName: 'swap-horizontal-outline',
+              label: internalRoutes.portfolio.subRoutes.rebalancing.title,
+              routerLink:
+                internalRoutes.portfolio.subRoutes.rebalancing.routerLink
+            });
+          }
+
           this.user = state.user;
         }
 
@@ -83,6 +97,7 @@ export class PortfolioPageComponent {
       calculatorOutline,
       pieChartOutline,
       scanOutline,
+      swapHorizontalOutline,
       swapVerticalOutline
     });
   }

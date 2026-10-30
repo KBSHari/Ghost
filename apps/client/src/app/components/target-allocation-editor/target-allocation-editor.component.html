@@ -1,0 +1,464 @@
+<ng-template #bandInputs let-name="name" let-node>
+  <div class="align-items-center d-flex flex-wrap gap-2">
+    <label class="align-items-center d-flex gap-1 mb-0">
+      <span class="small text-body-secondary">{{ labels.weight }} %</span>
+      <input
+        class="form-control form-control-sm number-input"
+        max="100"
+        min="0"
+        step="any"
+        type="number"
+        [attr.aria-label]="labels.weight + ' % ' + name"
+        [value]="node.weight"
+        (input)="onNumberChange({ event: $event, field: 'weight', node: node })"
+      />
+    </label>
+    <label class="align-items-center d-flex gap-1 mb-0">
+      <span class="small text-body-secondary">{{ labels.min }} %</span>
+      <input
+        class="form-control form-control-sm number-input"
+        max="100"
+        min="0"
+        step="any"
+        type="number"
+        [attr.aria-label]="labels.min + ' % ' + name"
+        [value]="node.min ?? ''"
+        (input)="onNumberChange({ event: $event, field: 'min', node: node })"
+      />
+    </label>
+    <label class="align-items-center d-flex gap-1 mb-0">
+      <span class="small text-body-secondary">{{ labels.max }} %</span>
+      <input
+        class="form-control form-control-sm number-input"
+        max="100"
+        min="0"
+        step="any"
+        type="number"
+        [attr.aria-label]="labels.max + ' % ' + name"
+        [value]="node.max ?? ''"
+        (input)="onNumberChange({ event: $event, field: 'max', node: node })"
+      />
+    </label>
+  </div>
+</ng-template>
+
+<div class="d-flex flex-column gap-4">
+  <div>
+    <label class="form-label" for="target-allocation-name" i18n>Name</label>
+    <input
+      class="form-control"
+      id="target-allocation-name"
+      maxlength="100"
+      type="text"
+      [value]="name"
+      (input)="onNameChange($event)"
+    />
+  </div>
+
+  <section>
+    <h3 class="h5" i18n>Targets</h3>
+    <p class="small text-body-secondary" i18n>
+      All weights are percentages of the whole portfolio. Sub-classes must add
+      up to their asset class and symbols to their sub-class. A minimum and a
+      maximum are optional: a holding inside its range is not traded.
+    </p>
+
+    <div class="align-items-end d-flex flex-wrap gap-3 mb-3">
+      <mat-form-field appearance="outline" class="without-hint symbol-field">
+        <mat-label i18n>Add a symbol</mat-label>
+        <gf-symbol-autocomplete [formControl]="symbolControl" />
+      </mat-form-field>
+      <div>
+        <label class="form-label small mb-1" for="add-asset-class" i18n>
+          Add an asset class
+        </label>
+        <select
+          class="form-select"
+          id="add-asset-class"
+          (change)="onAssetClassAdded($event)"
+        >
+          <option value=""></option>
+          @for (assetClass of getAvailableAssetClasses(); track assetClass) {
+            <option [value]="assetClass">{{ label(assetClass) }}</option>
+          }
+        </select>
+      </div>
+    </div>
+
+    @if (symbolMessage()) {
+      <div class="alert alert-warning" role="alert">
+        {{ symbolMessage() }}
+      </div>
+    }
+
+    @for (classNode of assetClasses; track classNode) {
+      <div class="border mb-3 p-3 rounded">
+        <div class="align-items-center d-flex flex-wrap gap-3">
+          <strong class="me-auto">{{ label(classNode.assetClass) }}</strong>
+          <ng-container
+            [ngTemplateOutlet]="bandInputs"
+            [ngTemplateOutletContext]="{
+              name: label(classNode.assetClass),
+              $implicit: classNode
+            }"
+          />
+          <button
+            mat-icon-button
+            type="button"
+            [attr.aria-label]="getRemoveLabel(label(classNode.assetClass))"
+            (click)="onAssetClassRemoved(classNode)"
+          >
+            <ion-icon name="trash-outline" />
+          </button>
+        </div>
+
+        @if (classNode.subClasses?.length) {
+          <div
+            class="small mt-1"
+            [class.text-danger]="
+              getSum(classNode.subClasses) !== classNode.weight
+            "
+          >
+            <ng-container i18n>Sub-classes add up to</ng-container>
+            {{ getSum(classNode.subClasses) }}% / {{ classNode.weight }}%
+          </div>
+        }
+
+        @for (subClassNode of classNode.subClasses; track subClassNode) {
+          <div class="border-start mt-3 ps-3">
+            <div class="align-items-center d-flex flex-wrap gap-3">
+              <span class="me-auto">{{
+                label(subClassNode.assetSubClass)
+              }}</span>
+              <ng-container
+                [ngTemplateOutlet]="bandInputs"
+                [ngTemplateOutletContext]="{
+                  name: label(subClassNode.assetSubClass),
+                  $implicit: subClassNode
+                }"
+              />
+              <button
+                mat-icon-button
+                type="button"
+                [attr.aria-label]="
+                  getRemoveLabel(label(subClassNode.assetSubClass))
+                "
+                (click)="
+                  onSubClassRemoved({
+                    classNode: classNode,
+                    subClassNode: subClassNode
+                  })
+                "
+              >
+                <ion-icon name="trash-outline" />
+              </button>
+            </div>
+
+            @if (subClassNode.symbols?.length) {
+              <div
+                class="small mt-1"
+                [class.text-danger]="
+                  getSum(subClassNode.symbols) !== subClassNode.weight
+                "
+              >
+                <ng-container i18n>Symbols add up to</ng-container>
+                {{ getSum(subClassNode.symbols) }}% / {{ subClassNode.weight }}%
+              </div>
+            }
+
+            @for (symbolNode of subClassNode.symbols; track symbolNode) {
+              <div
+                class="align-items-center border-start d-flex flex-wrap gap-3 mt-2 ps-3"
+              >
+                <span class="me-auto">
+                  {{
+                    symbolNames.get(getSymbolKey(symbolNode)) ??
+                      symbolNode.symbol
+                  }}
+                  <span class="small text-body-secondary">
+                    {{ symbolNode.symbol }}
+                  </span>
+                </span>
+                <ng-container
+                  [ngTemplateOutlet]="bandInputs"
+                  [ngTemplateOutletContext]="{
+                    name: symbolNode.symbol,
+                    $implicit: symbolNode
+                  }"
+                />
+                <button
+                  mat-icon-button
+                  type="button"
+                  [attr.aria-label]="getRemoveLabel(symbolNode.symbol)"
+                  (click)="
+                    onSymbolRemoved({
+                      subClassNode: subClassNode,
+                      symbolNode: symbolNode
+                    })
+                  "
+                >
+                  <ion-icon name="trash-outline" />
+                </button>
+              </div>
+            }
+          </div>
+        }
+
+        @if (getAvailableSubClasses(classNode).length > 0) {
+          <div class="mt-3">
+            <label
+              class="form-label small mb-1"
+              i18n
+              [for]="'add-sub-class-' + classNode.assetClass"
+            >
+              Add a sub-class
+            </label>
+            <select
+              class="form-select w-auto"
+              [id]="'add-sub-class-' + classNode.assetClass"
+              (change)="
+                onSubClassAdded({ classNode: classNode, event: $event })
+              "
+            >
+              <option value=""></option>
+              @for (
+                subClass of getAvailableSubClasses(classNode);
+                track subClass
+              ) {
+                <option [value]="subClass">{{ label(subClass) }}</option>
+              }
+            </select>
+          </div>
+        }
+      </div>
+    }
+
+    @if (assetClasses.length > 0) {
+      <div class="small" [class.text-danger]="getSum(assetClasses) !== 100">
+        <ng-container i18n>Asset classes add up to</ng-container>
+        {{ getSum(assetClasses) }}% / 100%
+      </div>
+    }
+  </section>
+
+  <section>
+    <h3 class="h5" i18n>Sector targets (advisory)</h3>
+    <p class="small text-body-secondary" i18n>
+      Sector targets are checked against the sector exposure of your holdings.
+      They are shown in the result but never create trades.
+    </p>
+
+    @for (sectorNode of sectors; track sectorNode) {
+      <div class="align-items-center d-flex flex-wrap gap-3 mb-2">
+        <span class="me-auto">{{ sectorNode.sector }}</span>
+        <ng-container
+          [ngTemplateOutlet]="bandInputs"
+          [ngTemplateOutletContext]="{
+            name: sectorNode.sector,
+            $implicit: sectorNode
+          }"
+        />
+        <button
+          mat-icon-button
+          type="button"
+          [attr.aria-label]="getRemoveLabel(sectorNode.sector)"
+          (click)="onSectorRemoved(sectorNode)"
+        >
+          <ion-icon name="trash-outline" />
+        </button>
+      </div>
+    }
+
+    <div class="align-items-end d-flex gap-2">
+      <div>
+        <label class="form-label small mb-1" for="add-sector" i18n>
+          Add a sector
+        </label>
+        <input
+          #sectorInput
+          class="form-control"
+          id="add-sector"
+          maxlength="100"
+          type="text"
+          (keydown.enter)="onSectorAdded(sectorInput)"
+        />
+      </div>
+      <button
+        mat-stroked-button
+        type="button"
+        (click)="onSectorAdded(sectorInput)"
+      >
+        <ng-container i18n>Add</ng-container>
+      </button>
+    </div>
+  </section>
+
+  <section>
+    <h3 class="h5" i18n>Trading rules</h3>
+    <div class="row g-3">
+      <div class="col-6 col-md-3">
+        <label class="form-label" for="param-flat-fee" i18n
+          >Flat fee per trade</label
+        >
+        <input
+          class="form-control"
+          id="param-flat-fee"
+          min="0"
+          step="any"
+          type="number"
+          [value]="parameters.flatFee"
+          (input)="onParameterNumberChange({ event: $event, field: 'flatFee' })"
+        />
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label" for="param-percentage-fee" i18n>
+          Fee per trade (%)
+        </label>
+        <input
+          class="form-control"
+          id="param-percentage-fee"
+          max="100"
+          min="0"
+          step="any"
+          type="number"
+          [value]="parameters.percentageFee"
+          (input)="
+            onParameterNumberChange({ event: $event, field: 'percentageFee' })
+          "
+        />
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label" for="param-reserve-amount" i18n>
+          Cash reserve (amount)
+        </label>
+        <input
+          class="form-control"
+          id="param-reserve-amount"
+          min="0"
+          step="any"
+          type="number"
+          [value]="parameters.cashReserveAmount"
+          (input)="
+            onParameterNumberChange({
+              event: $event,
+              field: 'cashReserveAmount'
+            })
+          "
+        />
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label" for="param-reserve-percentage" i18n>
+          Cash reserve (%)
+        </label>
+        <input
+          class="form-control"
+          id="param-reserve-percentage"
+          max="100"
+          min="0"
+          step="any"
+          type="number"
+          [value]="parameters.cashReservePercentage"
+          (input)="
+            onParameterNumberChange({
+              event: $event,
+              field: 'cashReservePercentage'
+            })
+          "
+        />
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label" for="param-min-trade" i18n>
+          Minimum trade value
+        </label>
+        <input
+          class="form-control"
+          id="param-min-trade"
+          min="0"
+          step="any"
+          type="number"
+          [value]="parameters.minTradeValue"
+          (input)="
+            onParameterNumberChange({ event: $event, field: 'minTradeValue' })
+          "
+        />
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label" for="param-drift" i18n>
+          Drift threshold (percentage points)
+        </label>
+        <input
+          class="form-control"
+          id="param-drift"
+          max="100"
+          min="0"
+          step="any"
+          type="number"
+          [value]="parameters.driftThreshold"
+          (input)="
+            onParameterNumberChange({ event: $event, field: 'driftThreshold' })
+          "
+        />
+      </div>
+      <div class="align-self-end col-6 col-md-3">
+        <div class="form-check">
+          <input
+            class="form-check-input"
+            id="param-allow-fractional"
+            type="checkbox"
+            [checked]="parameters.allowFractional"
+            (change)="
+              onParameterBooleanChange({
+                event: $event,
+                field: 'allowFractional'
+              })
+            "
+          />
+          <label class="form-check-label" for="param-allow-fractional" i18n>
+            Allow fractional shares
+          </label>
+        </div>
+      </div>
+      <div class="align-self-end col-6 col-md-3">
+        <div class="form-check">
+          <input
+            class="form-check-input"
+            id="param-allow-sells"
+            type="checkbox"
+            [checked]="parameters.allowSells"
+            (change)="
+              onParameterBooleanChange({ event: $event, field: 'allowSells' })
+            "
+          />
+          <label class="form-check-label" for="param-allow-sells" i18n>
+            Allow sells
+          </label>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  @if (errors().length > 0) {
+    <div class="alert alert-danger mb-0" role="alert">
+      <ul class="mb-0">
+        @for (error of errors(); track $index) {
+          <li>{{ error.message }}</li>
+        }
+      </ul>
+    </div>
+  }
+
+  <div class="d-flex gap-2 justify-content-end">
+    <button mat-button type="button" (click)="onCancel()">
+      <ng-container i18n>Cancel</ng-container>
+    </button>
+    <button
+      color="primary"
+      mat-flat-button
+      type="button"
+      [disabled]="!canSave()"
+      (click)="onSave()"
+    >
+      <ng-container i18n>Save</ng-container>
+    </button>
+  </div>
+</div>
