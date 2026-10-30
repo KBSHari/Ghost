@@ -10,7 +10,9 @@ import { CreateAssetProfileWithMarketDataDto } from './create-asset-profile-with
 import { CreateAssetProfileDto } from './create-asset-profile.dto';
 import { CreateOrderDto } from './create-order.dto';
 import { CreatePlatformDto } from './create-platform.dto';
+import { CreateRebalancingPlanDto } from './create-rebalancing-plan.dto';
 import { CreateTagDto } from './create-tag.dto';
+import { CreateTargetAllocationModelDto } from './create-target-allocation-model.dto';
 import { CreateUserDto } from './create-user.dto';
 import { CreateWatchlistItemDto } from './create-watchlist-item.dto';
 import { DeleteOwnUserDto } from './delete-own-user.dto';
@@ -30,6 +32,7 @@ import { UpdateOwnAccessTokenDto } from './update-own-access-token.dto';
 import { UpdatePlatformDto } from './update-platform.dto';
 import { UpdatePropertyDto } from './update-property.dto';
 import { UpdateTagDto } from './update-tag.dto';
+import { UpdateTargetAllocationModelDto } from './update-target-allocation-model.dto';
 import { UpdateUserSettingDto } from './update-user-setting.dto';
 
 export {
@@ -45,7 +48,9 @@ export {
   CreateAssetProfileWithMarketDataDto,
   CreateOrderDto,
   CreatePlatformDto,
+  CreateRebalancingPlanDto,
   CreateTagDto,
+  CreateTargetAllocationModelDto,
   CreateUserDto,
   CreateWatchlistItemDto,
   DeleteOwnUserDto,
@@ -65,5 +70,6 @@ export {
   UpdatePlatformDto,
   UpdatePropertyDto,
   UpdateTagDto,
+  UpdateTargetAllocationModelDto,
   UpdateUserSettingDto
 };

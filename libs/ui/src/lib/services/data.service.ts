@@ -4,7 +4,9 @@ import {
   CreateAccountDto,
   CreateOrderDto,
   CreatePlatformDto,
+  CreateRebalancingPlanDto,
   CreateTagDto,
+  CreateTargetAllocationModelDto,
   CreateUserDto,
   CreateWatchlistItemDto,
   DeleteOwnUserDto,
@@ -17,6 +19,7 @@ import {
   UpdatePlatformDto,
   UpdatePropertyDto,
   UpdateTagDto,
+  UpdateTargetAllocationModelDto,
   UpdateUserSettingDto
 } from '@ghostfolio/common/dtos';
 import { DATE_FORMAT } from '@ghostfolio/common/helper';
@@ -59,8 +62,10 @@ import {
   PortfolioPerformanceResponse,
   PortfolioReportResponse,
   PublicPortfolioResponse,
+  RebalancingPlan,
   RedeemCouponResponse,
   SymbolResponse,
+  TargetAllocationModel,
   User,
   UserItem,
   WatchlistResponse
@@ -372,6 +377,10 @@ export class DataService {
 
   public deleteTag(aId: string) {
     return this.http.delete<Tag>(`/api/v1/tags/${aId}`);
+  }
+
+  public deleteTargetAllocationModel(aId: string) {
+    return this.http.delete<void>(`/api/v1/rebalancing/models/${aId}`);
   }
 
   public deleteUser(aId: string) {
@@ -860,6 +869,16 @@ export class DataService {
     return this.http.get<TagWithAccountAndActivityCount[]>('/api/v1/tags');
   }
 
+  public fetchTargetAllocationModel(aId: string) {
+    return this.http.get<TargetAllocationModel>(
+      `/api/v1/rebalancing/models/${aId}`
+    );
+  }
+
+  public fetchTargetAllocationModels() {
+    return this.http.get<TargetAllocationModel[]>('/api/v1/rebalancing/models');
+  }
+
   public fetchWatchlist() {
     return this.http.get<WatchlistResponse>('/api/v1/watchlist');
   }
@@ -928,8 +947,19 @@ export class DataService {
     return this.http.post<PlatformResponse>(`/api/v1/platforms`, aPlatform);
   }
 
+  public postRebalancingPlan(aData: CreateRebalancingPlanDto) {
+    return this.http.post<RebalancingPlan>('/api/v1/rebalancing/plan', aData);
+  }
+
   public postTag(aTag: CreateTagDto) {
     return this.http.post<Tag>(`/api/v1/tags`, aTag);
+  }
+
+  public postTargetAllocationModel(aModel: CreateTargetAllocationModelDto) {
+    return this.http.post<TargetAllocationModel>(
+      '/api/v1/rebalancing/models',
+      aModel
+    );
   }
 
   public postUser(aData: CreateUserDto) {
@@ -979,6 +1009,19 @@ export class DataService {
 
   public putTag(aTag: UpdateTagDto) {
     return this.http.put<Tag>(`/api/v1/tags/${aTag.id}`, aTag);
+  }
+
+  public putTargetAllocationModel({
+    id,
+    model
+  }: {
+    id: string;
+    model: UpdateTargetAllocationModelDto;
+  }) {
+    return this.http.put<TargetAllocationModel>(
+      `/api/v1/rebalancing/models/${id}`,
+      model
+    );
   }
 
   public putUserSetting(aData: UpdateUserSettingDto) {

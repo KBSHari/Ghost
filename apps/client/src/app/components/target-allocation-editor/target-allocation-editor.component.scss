@@ -1,0 +1,11 @@
+:host {
+  display: block;
+
+  .number-input {
+    width: 6rem;
+  }
+
+  .symbol-field {
+    min-width: 16rem;
+  }
+}

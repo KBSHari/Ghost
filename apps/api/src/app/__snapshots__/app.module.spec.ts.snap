@@ -202,6 +202,14 @@ exports[`AppModule should keep the security of each route 1`] = `
     "interceptors": [],
     "permission": "deletePlatform",
   },
+  "DELETE /rebalancing/models/:id": {
+    "guards": [
+      "AuthGuard('jwt')",
+      "HasPermissionGuard",
+    ],
+    "interceptors": [],
+    "permission": "deleteRebalancingModel",
+  },
   "DELETE /tags/:id": {
     "allowDuringImpersonation": true,
     "guards": [
@@ -809,6 +817,26 @@ exports[`AppModule should keep the security of each route 1`] = `
       "RedactValuesInResponseInterceptor",
     ],
   },
+  "GET /rebalancing/models": {
+    "guards": [
+      "AuthGuard('jwt')",
+      "HasPermissionGuard",
+    ],
+    "interceptors": [
+      "TransformDataSourceInResponseInterceptor",
+    ],
+    "permission": "accessRebalancing",
+  },
+  "GET /rebalancing/models/:id": {
+    "guards": [
+      "AuthGuard('jwt')",
+      "HasPermissionGuard",
+    ],
+    "interceptors": [
+      "TransformDataSourceInResponseInterceptor",
+    ],
+    "permission": "accessRebalancing",
+  },
   "GET /sitemap.xml (version neutral)": {
     "guards": [],
     "interceptors": [],
@@ -1257,6 +1285,29 @@ exports[`AppModule should keep the security of each route 1`] = `
     "interceptors": [],
     "permission": "createPlatform",
   },
+  "POST /rebalancing/models": {
+    "guards": [
+      "AuthGuard('jwt')",
+      "HasPermissionGuard",
+    ],
+    "interceptors": [
+      "TransformDataSourceInRequestInterceptor",
+      "TransformDataSourceInResponseInterceptor",
+    ],
+    "permission": "createRebalancingModel",
+  },
+  "POST /rebalancing/plan": {
+    "guards": [
+      "AuthGuard('jwt')",
+      "HasPermissionGuard",
+      "CustomThrottlerGuard",
+    ],
+    "interceptors": [
+      "TransformDataSourceInRequestInterceptor",
+      "TransformDataSourceInResponseInterceptor",
+    ],
+    "permission": "accessRebalancing",
+  },
   "POST /subscription/redeem-coupon": {
     "allowDuringImpersonation": true,
     "guards": [
@@ -1427,6 +1478,17 @@ exports[`AppModule should keep the security of each route 1`] = `
     "scopes": [
       "activity:update",
     ],
+  },
+  "PUT /rebalancing/models/:id": {
+    "guards": [
+      "AuthGuard('jwt')",
+      "HasPermissionGuard",
+    ],
+    "interceptors": [
+      "TransformDataSourceInRequestInterceptor",
+      "TransformDataSourceInResponseInterceptor",
+    ],
+    "permission": "updateRebalancingModel",
   },
   "PUT /tags/:id": {
     "allowDuringImpersonation": true,

@@ -402,10 +402,13 @@ export class UserService {
     }
 
     if (!(user.settings.settings as UserSettings).isExperimentalFeatures) {
-      // currentPermissions = without(
-      //   currentPermissions,
-      //   permissions.xyz
-      // );
+      currentPermissions = without(
+        currentPermissions,
+        permissions.accessRebalancing,
+        permissions.createRebalancingModel,
+        permissions.deleteRebalancingModel,
+        permissions.updateRebalancingModel
+      );
     }
 
     if (this.configurationService.get('ENABLE_FEATURE_SUBSCRIPTION')) {

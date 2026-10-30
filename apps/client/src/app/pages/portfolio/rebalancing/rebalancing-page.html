@@ -1,0 +1,164 @@
+<div class="container">
+  <div class="mb-4">
+    <h1 class="h3" i18n>Rebalancing</h1>
+    <p class="text-body-secondary mb-0" i18n>
+      Set target weights for your portfolio and get the trades that bring it
+      back to them. This is a calculation only: no trade is placed.
+    </p>
+  </div>
+
+  @if (errorMessage()) {
+    <div class="alert alert-danger" role="alert">{{ errorMessage() }}</div>
+  }
+
+  @if (mode() === 'edit') {
+    <gf-target-allocation-editor
+      [isSaving]="isSaving()"
+      [model]="editedModel()"
+      (cancelled)="onCancelled()"
+      (saved)="onSaved($event)"
+    />
+  } @else if (isLoading()) {
+    <p class="text-body-secondary" i18n role="status">Loading…</p>
+  } @else {
+    <section aria-labelledby="rebalancing-model-title" class="mb-4">
+      <h2 class="h4" i18n id="rebalancing-model-title">Target model</h2>
+
+      @if (models().length === 0) {
+        <p class="text-body-secondary" i18n>
+          You have no target model yet. Create one to get started.
+        </p>
+      } @else {
+        <div class="align-items-end d-flex flex-wrap gap-2">
+          <div>
+            <label class="form-label" for="rebalancing-model" i18n>Model</label>
+            <select
+              class="form-select"
+              id="rebalancing-model"
+              (change)="onModelSelected($any($event.target).value)"
+            >
+              @for (model of models(); track model.id) {
+                <option
+                  [selected]="model.id === selectedModelId()"
+                  [value]="model.id"
+                >
+                  {{ model.name }}
+                </option>
+              }
+            </select>
+          </div>
+          @if (canWrite()) {
+            <button mat-stroked-button type="button" (click)="onEditModel()">
+              <ng-container i18n>Edit</ng-container>
+            </button>
+            <button mat-stroked-button type="button" (click)="onDeleteModel()">
+              <ng-container i18n>Delete</ng-container>
+            </button>
+          }
+        </div>
+      }
+
+      @if (canWrite()) {
+        <button
+          class="mt-3"
+          color="primary"
+          mat-flat-button
+          type="button"
+          (click)="onNewModel()"
+        >
+          <ng-container i18n>New model</ng-container>
+        </button>
+      }
+    </section>
+
+    @if (selectedModel(); as model) {
+      <section aria-labelledby="rebalancing-run-title" class="mb-4">
+        <h2 class="h4" i18n id="rebalancing-run-title">Run</h2>
+
+        @if (accounts().length > 0) {
+          <fieldset class="mb-3">
+            <legend class="fs-6" i18n>
+              Accounts (none selected means all)
+            </legend>
+            @for (account of accounts(); track account.id) {
+              <div class="form-check form-check-inline">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  [checked]="isAccountSelected(account.id)"
+                  [id]="'rebalancing-account-' + account.id"
+                  (change)="
+                    onAccountToggled({
+                      checked: $any($event.target).checked,
+                      id: account.id
+                    })
+                  "
+                />
+                <label
+                  class="form-check-label"
+                  [for]="'rebalancing-account-' + account.id"
+                >
+                  {{ account.name }}
+                </label>
+              </div>
+            }
+          </fieldset>
+        }
+
+        <div class="d-flex flex-wrap gap-4 mb-3">
+          <div class="form-check">
+            <input
+              class="form-check-input"
+              id="rebalancing-allow-sells"
+              type="checkbox"
+              [checked]="allowSells() ?? model.parameters.allowSells"
+              (change)="onAllowSellsChanged($any($event.target).checked)"
+            />
+            <label class="form-check-label" for="rebalancing-allow-sells" i18n>
+              Allow sells
+            </label>
+          </div>
+          <div class="form-check">
+            <input
+              class="form-check-input"
+              id="rebalancing-allow-fractional"
+              type="checkbox"
+              [checked]="allowFractional() ?? model.parameters.allowFractional"
+              (change)="onAllowFractionalChanged($any($event.target).checked)"
+            />
+            <label
+              class="form-check-label"
+              for="rebalancing-allow-fractional"
+              i18n
+            >
+              Allow fractional shares
+            </label>
+          </div>
+        </div>
+
+        <button
+          color="primary"
+          mat-flat-button
+          type="button"
+          [disabled]="isRunning()"
+          (click)="onRun()"
+        >
+          <ng-container i18n>Calculate trades</ng-container>
+        </button>
+        @if (isRunning()) {
+          <span class="ms-2 text-body-secondary" i18n role="status">
+            Calculating…
+          </span>
+        }
+      </section>
+    }
+
+    @if (plan(); as result) {
+      <gf-rebalancing-result
+        [baseCurrency]="user?.settings?.baseCurrency"
+        [locale]="user?.settings?.locale"
+        [plan]="result"
+      />
+    }
+  }
+</div>

@@ -37,6 +37,17 @@ import type { PortfolioPosition } from './portfolio-position.interface';
 import type { PortfolioReportRule } from './portfolio-report-rule.interface';
 import type { PortfolioSummary } from './portfolio-summary.interface';
 import type { Product } from './product.interface';
+import type {
+  RebalancingAllocationItem,
+  RebalancingCash,
+  RebalancingExcludedHolding,
+  RebalancingPlan,
+  RebalancingSectorCheck,
+  RebalancingSummary,
+  RebalancingTrade,
+  RebalancingWarning,
+  RebalancingWarningCode
+} from './rebalancing-plan.interface';
 import type { ReferralPartner } from './referral-partner.interface';
 import type { AccessResponse } from './responses/access-response.interface';
 import type { AccessTokenResponse } from './responses/access-token-response.interface';
@@ -104,6 +115,18 @@ import type { Statistics } from './statistics.interface';
 import type { SubscriptionOffer } from './subscription-offer.interface';
 import type { SymbolItem } from './symbol-item.interface';
 import type { SystemMessage } from './system-message.interface';
+import type {
+  TargetAllocationClassNode,
+  TargetAllocationModel,
+  TargetAllocationParameters,
+  TargetAllocationSectorNode,
+  TargetAllocationSubClassNode,
+  TargetAllocationSymbolNode,
+  TargetAllocationSymbolResolver,
+  TargetAllocationTargets,
+  TargetAllocationValidationError,
+  TargetAllocationValidationErrorCode
+} from './target-allocation-model.interface';
 import type { UserItem } from './user-item.interface';
 import type { UserSettings } from './user-settings.interface';
 import type { User } from './user.interface';
@@ -200,6 +223,15 @@ export {
   PublicKeyCredentialRequestOptionsJSON,
   PublicPortfolioResponse,
   QuotesResponse,
+  RebalancingAllocationItem,
+  RebalancingCash,
+  RebalancingExcludedHolding,
+  RebalancingPlan,
+  RebalancingSectorCheck,
+  RebalancingSummary,
+  RebalancingTrade,
+  RebalancingWarning,
+  RebalancingWarningCode,
   RedeemCouponResponse,
   ReferralPartner,
   ResponseError,
@@ -210,6 +242,16 @@ export {
   SymbolItem,
   SymbolResponse,
   SystemMessage,
+  TargetAllocationClassNode,
+  TargetAllocationModel,
+  TargetAllocationParameters,
+  TargetAllocationSectorNode,
+  TargetAllocationSubClassNode,
+  TargetAllocationSymbolNode,
+  TargetAllocationSymbolResolver,
+  TargetAllocationTargets,
+  TargetAllocationValidationError,
+  TargetAllocationValidationErrorCode,
   User,
   UserItem,
   UserSettings,
