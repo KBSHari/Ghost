@@ -1,0 +1,44 @@
+@if (missingWarnings.length > 0 || estimatedWarnings.length > 0) {
+  <div class="fx-rate-warning mb-3 p-3" role="status">
+    @if (missingWarnings.length > 0) {
+      <details class="mb-2">
+        <summary class="font-weight-bold">
+          <span i18n>Missing exchange rates</span>
+          ({{ missingWarnings.length }})
+        </summary>
+        <p class="mb-1 mt-1" i18n>
+          No exchange rate is available, so the affected holdings are excluded
+          from the values.
+        </p>
+        <ul class="mb-0">
+          @for (warning of missingWarnings; track $index) {
+            <li>
+              {{ warning.currencyFrom }}/{{ warning.currencyTo }}
+              {{ warning.date }}
+            </li>
+          }
+        </ul>
+      </details>
+    }
+    @if (estimatedWarnings.length > 0) {
+      <details>
+        <summary class="font-weight-bold">
+          <span i18n>Estimated exchange rates</span>
+          ({{ estimatedWarnings.length }})
+        </summary>
+        <p class="mb-1 mt-1" i18n>
+          No exchange rate was available on these dates, so the most recent
+          earlier rate was used.
+        </p>
+        <ul class="mb-0">
+          @for (warning of estimatedWarnings; track $index) {
+            <li>
+              {{ warning.currencyFrom }}/{{ warning.currencyTo }}
+              {{ warning.date }}
+            </li>
+          }
+        </ul>
+      </details>
+    }
+  </div>
+}

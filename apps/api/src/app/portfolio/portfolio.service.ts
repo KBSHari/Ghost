@@ -650,8 +650,13 @@ export class PortfolioService {
       subscriptionType: user.subscription?.type
     });
 
-    const { createdAt, currentValueInBaseCurrency, hasErrors, positions } =
-      await portfolioCalculator.getSnapshot();
+    const {
+      createdAt,
+      currentValueInBaseCurrency,
+      fxWarnings,
+      hasErrors,
+      positions
+    } = await portfolioCalculator.getSnapshot();
 
     const cashDetails = await this.accountService.getCashDetails({
       filters,
@@ -897,6 +902,7 @@ export class PortfolioService {
     return {
       accounts,
       createdAt,
+      ...(fxWarnings ? { fxWarnings } : {}),
       hasErrors,
       holdings,
       markets,
@@ -1223,7 +1229,7 @@ export class PortfolioService {
       subscriptionType: user.subscription?.type
     });
 
-    const { errors, hasErrors, historicalData } =
+    const { errors, fxWarnings, hasErrors, historicalData } =
       await portfolioCalculator.getSnapshot();
 
     const { endDate, startDate } = getIntervalFromDateRange({ dateRange });
@@ -1270,6 +1276,7 @@ export class PortfolioService {
     return {
       chart,
       errors,
+      ...(fxWarnings ? { fxWarnings } : {}),
       hasErrors,
       dateOfFirstActivity: parseDate(historicalData[0]?.date),
       performance: {

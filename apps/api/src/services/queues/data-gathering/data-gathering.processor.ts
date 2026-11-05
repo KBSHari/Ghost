@@ -1,10 +1,13 @@
 import { DataProviderService } from '@ghostfolio/api/services/data-provider/data-provider.service';
 import { AssetProfileDelistedError } from '@ghostfolio/api/services/data-provider/errors/asset-profile-delisted.error';
+import { ExchangeRateDataService } from '@ghostfolio/api/services/exchange-rate-data/exchange-rate-data.service';
+import { ExchangeRateStoreService } from '@ghostfolio/api/services/exchange-rate-data/exchange-rate-store.service';
 import { DataGatheringItem } from '@ghostfolio/api/services/interfaces/interfaces';
 import { MarketDataService } from '@ghostfolio/api/services/market-data/market-data.service';
 import { SymbolProfileService } from '@ghostfolio/api/services/symbol-profile/symbol-profile.service';
 import {
   DATA_GATHERING_QUEUE,
+  DEFAULT_CURRENCY,
   DEFAULT_PROCESSOR_GATHER_ASSET_PROFILE_CONCURRENCY,
   DEFAULT_PROCESSOR_GATHER_HISTORICAL_MARKET_DATA_CONCURRENCY,
   GATHER_ASSET_PROFILE_PROCESS_JOB_NAME,
@@ -19,7 +22,7 @@ import { AssetProfileIdentifier } from '@ghostfolio/common/interfaces';
 
 import { utc } from '@date-fns/utc';
 import { Process, Processor } from '@nestjs/bull';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { Job } from 'bull';
 import { addDays, format, isBefore, parseISO } from 'date-fns';
@@ -35,7 +38,11 @@ export class DataGatheringProcessor {
     private readonly dataGatheringService: DataGatheringService,
     private readonly dataProviderService: DataProviderService,
     private readonly marketDataService: MarketDataService,
-    private readonly symbolProfileService: SymbolProfileService
+    private readonly symbolProfileService: SymbolProfileService,
+    @Optional()
+    private readonly exchangeRateDataService?: ExchangeRateDataService,
+    @Optional()
+    private readonly exchangeRateStoreService?: ExchangeRateStoreService
   ) {}
 
   @Process({
@@ -155,6 +162,8 @@ export class DataGatheringProcessor {
         await this.marketDataService.updateMany({ data });
       }
 
+      await this.syncExchangeRates({ data, dataSource, symbol });
+
       this.logger.log(
         `Historical market data gathering has been completed for ${symbol} (${dataSource}) at ${format(
           currentDate,
@@ -184,6 +193,58 @@ export class DataGatheringProcessor {
       this.logger.error(error.message);
 
       throw error;
+    }
+  }
+
+  private async syncExchangeRates({
+    data,
+    dataSource,
+    symbol
+  }: AssetProfileIdentifier & { data: Prisma.MarketDataUpdateInput[] }) {
+    if (!this.exchangeRateDataService || !this.exchangeRateStoreService) {
+      return;
+    }
+
+    const isCurrencyPair = this.exchangeRateDataService
+      .getCurrencyPairs()
+      .some((currencyPair) => {
+        return (
+          currencyPair.dataSource === dataSource &&
+          currencyPair.symbol === symbol
+        );
+      });
+
+    if (!isCurrencyPair) {
+      return;
+    }
+
+    // The market data has already been written and remains the fallback, so a
+    // failure here must never fail the gathering job
+    try {
+      const { rejected, written } =
+        await this.exchangeRateStoreService.upsertObserved(
+          data
+            .filter(({ isCarriedForward }) => {
+              return !isCarriedForward;
+            })
+            .map(({ date, marketPrice }) => {
+              return {
+                currencyFrom: DEFAULT_CURRENCY,
+                currencyTo: symbol.substring(DEFAULT_CURRENCY.length),
+                date: date as Date,
+                rate: marketPrice as number,
+                source: dataSource
+              };
+            })
+        );
+
+      this.logger.log(
+        `Exchange rate synchronization has been completed for ${symbol} (${dataSource}): ${written} written, ${rejected} rejected`
+      );
+    } catch {
+      this.logger.error(
+        `Exchange rate synchronization has failed for ${symbol} (${dataSource})`
+      );
     }
   }
 }

@@ -44,5 +44,16 @@ export const ExchangeRateDataServiceMock: Partial<ExchangeRateDataService> = {
     }
 
     return Promise.resolve({});
+  },
+  getExchangeRatesByCurrencyWithStatus: async (parameters) => {
+    return {
+      estimatedDates: {},
+      missingDates: {},
+      rates:
+        await ExchangeRateDataServiceMock.getExchangeRatesByCurrency(parameters)
+    };
+  },
+  isHistoricalFxEnabled: () => {
+    return Promise.resolve(false);
   }
 };

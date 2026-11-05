@@ -564,6 +564,47 @@ describe('PortfolioService', () => {
       ]);
     });
 
+    it('should pass the exchange rate warnings of the snapshot through', async () => {
+      setUpCashOnlyPortfolio();
+
+      const fxWarnings = [
+        {
+          currencyFrom: 'USD',
+          currencyTo: 'CHF',
+          date: '2024-01-06',
+          type: 'ESTIMATED' as const
+        }
+      ];
+
+      const calculator = portfolioCalculatorFactory.createCalculator(
+        {} as never
+      );
+      const snapshot = await calculator.getSnapshot();
+
+      (calculator.getSnapshot as jest.Mock).mockResolvedValue({
+        ...snapshot,
+        fxWarnings
+      });
+
+      const details = await portfolioService.getDetails({
+        filters: [],
+        userId: userDummyData.id
+      });
+
+      expect(details.fxWarnings).toEqual(fxWarnings);
+    });
+
+    it('should not add exchange rate warnings when the snapshot has none', async () => {
+      setUpCashOnlyPortfolio();
+
+      const details = await portfolioService.getDetails({
+        filters: [],
+        userId: userDummyData.id
+      });
+
+      expect(details).not.toHaveProperty('fxWarnings');
+    });
+
     it('should replace the existing cash holding instead of adding a second one when filtering by the emergency fund tag', async () => {
       setUpCashOnlyPortfolio({ baseCurrency: 'USD', emergencyFund: 1000 });
 
@@ -952,6 +993,53 @@ describe('PortfolioService', () => {
       ]);
       expect(dateOfFirstActivity).toEqual(parseDate('2023-03-01'));
       expect(performance.netPerformance).toBe(600);
+    });
+
+    it('should pass the exchange rate warnings of the snapshot through', async () => {
+      const fxWarnings = [
+        {
+          currencyFrom: 'USD',
+          currencyTo: 'CHF',
+          date: '2023-03-04',
+          type: 'MISSING' as const
+        }
+      ];
+
+      jest
+        .spyOn(portfolioCalculatorFactory, 'createCalculator')
+        .mockReturnValue({
+          getPerformance: getPerformanceOfCalculator,
+          getSnapshot: jest.fn().mockResolvedValue({
+            errors: [],
+            fxWarnings,
+            hasErrors: true,
+            historicalData: [{ date: '2023-03-01' }]
+          })
+        } as unknown as PortfolioCalculator);
+
+      getPerformanceOfCalculator.mockResolvedValueOnce({
+        chart: [{ date: '2023-03-01', netPerformance: 0 }]
+      });
+
+      const result = await portfolioService.getPerformance({
+        dateRange: 'max',
+        userId: userDummyData.id
+      });
+
+      expect(result.fxWarnings).toEqual(fxWarnings);
+    });
+
+    it('should not add exchange rate warnings when the snapshot has none', async () => {
+      getPerformanceOfCalculator.mockResolvedValueOnce({
+        chart: [{ date: '2023-03-01', netPerformance: 0 }]
+      });
+
+      const result = await portfolioService.getPerformance({
+        dateRange: 'max',
+        userId: userDummyData.id
+      });
+
+      expect(result).not.toHaveProperty('fxWarnings');
     });
 
     it('should return one chart item per calendar year since the first activity when grouped by year', async () => {

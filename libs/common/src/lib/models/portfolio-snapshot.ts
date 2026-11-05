@@ -1,6 +1,7 @@
 import { transformToBig } from '@ghostfolio/common/class-transformer';
 import {
   AssetProfileIdentifier,
+  ExchangeRateWarning,
   HistoricalDataItem
 } from '@ghostfolio/common/interfaces';
 import { PortfolioSnapshotHolding } from '@ghostfolio/common/models';
@@ -26,6 +27,8 @@ export class PortfolioSnapshot {
   dividendYieldPercentWithCurrencyEffect: Big;
 
   errors: AssetProfileIdentifier[];
+
+  fxWarnings?: ExchangeRateWarning[];
 
   hasErrors: boolean;
 
