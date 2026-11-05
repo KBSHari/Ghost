@@ -164,6 +164,20 @@ model AuthDevice {
   @@index([userId])
 }
 
+model ExchangeRate {
+  createdAt    DateTime   @default(now())
+  currencyFrom String
+  currencyTo   String
+  date         DateTime
+  id           String     @id @default(uuid())
+  rate         Float
+  source       DataSource
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([currencyFrom, currencyTo, date, source])
+  @@index([date])
+}
+
 model MarketData {
   createdAt        DateTime        @default(now())
   dataSource       DataSource

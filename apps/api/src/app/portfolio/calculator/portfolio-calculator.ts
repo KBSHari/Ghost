@@ -18,6 +18,7 @@ import { getFactor } from '@ghostfolio/api/helper/portfolio.helper';
 import { LogPerformance } from '@ghostfolio/api/interceptors/performance-logging/performance-logging.interceptor';
 import { ConfigurationService } from '@ghostfolio/api/services/configuration/configuration.service';
 import { ExchangeRateDataService } from '@ghostfolio/api/services/exchange-rate-data/exchange-rate-data.service';
+import { ExchangeRatesWithStatus } from '@ghostfolio/api/services/exchange-rate-data/interfaces/exchange-rate-data.interface';
 import { DataGatheringItem } from '@ghostfolio/api/services/interfaces/interfaces';
 import { PortfolioSnapshotService } from '@ghostfolio/api/services/queues/portfolio-snapshot/portfolio-snapshot.service';
 import { RedisCacheService } from '@ghostfolio/api/services/redis-cache/redis-cache.service';
@@ -44,6 +45,7 @@ import {
   Activity,
   AssetProfileIdentifier,
   DataProviderInfo,
+  ExchangeRateWarning,
   Filter,
   HistoricalDataItem,
   InvestmentItem,
@@ -84,6 +86,7 @@ import { groupBy, mapValues, sortBy, uniqBy } from 'lodash-es';
 export abstract class PortfolioCalculator {
   protected static readonly ENABLE_LOGGING = false;
 
+  private static readonly MAX_EXCHANGE_RATE_WARNINGS = 100;
   private static readonly MAX_INITIALIZATION_ATTEMPTS = 3;
 
   protected readonly logger = new Logger(PortfolioCalculator.name);
@@ -308,13 +311,30 @@ export abstract class PortfolioCalculator {
       currencies[getAssetProfileIdentifier({ dataSource, symbol })] = currency;
     }
 
+    const currenciesOfHoldings = Array.from(new Set(Object.values(currencies)));
+
+    const isHistoricalFxEnabled =
+      await this.exchangeRateDataService.isHistoricalFxEnabled(this.userId);
+
+    const exchangeRatesWithStatus = isHistoricalFxEnabled
+      ? await this.exchangeRateDataService.getExchangeRatesByCurrencyWithStatus(
+          {
+            currencies: currenciesOfHoldings,
+            endDate: this.endDate,
+            startDate: this.startDate,
+            targetCurrency: this.currency
+          }
+        )
+      : undefined;
+
     const exchangeRatesByCurrency =
-      await this.exchangeRateDataService.getExchangeRatesByCurrency({
-        currencies: Array.from(new Set(Object.values(currencies))),
+      exchangeRatesWithStatus?.rates ??
+      (await this.exchangeRateDataService.getExchangeRatesByCurrency({
+        currencies: currenciesOfHoldings,
         endDate: this.endDate,
         startDate: this.startDate,
         targetCurrency: this.currency
-      });
+      }));
 
     const {
       dataProviderInfos,
@@ -385,6 +405,13 @@ export abstract class PortfolioCalculator {
         return differenceInDays(nextChartDate, parsedChartDates[index]);
       });
 
+    const { excludedAssetProfileIdentifiers, fxWarnings } =
+      this.getExchangeRateWarnings({
+        currencies,
+        endDateString,
+        exchangeRatesWithStatus
+      });
+
     const errors: ResponseError['errors'] = [];
     let hasAnyHoldingPerformanceErrors = false;
 
@@ -412,6 +439,15 @@ export abstract class PortfolioCalculator {
 
     for (const item of latestHoldingBalances.holdings) {
       const assetProfileIdentifier = getAssetProfileIdentifier(item);
+
+      if (excludedAssetProfileIdentifiers.has(assetProfileIdentifier)) {
+        // No exchange rate is available, so the holding is left out of all
+        // values instead of being converted at a rate of 1
+        errors.push({ dataSource: item.dataSource, symbol: item.symbol });
+        hasAnyHoldingPerformanceErrors = true;
+
+        continue;
+      }
 
       const marketPriceInBaseCurrency = (
         marketSymbolMap[endDateString]?.[assetProfileIdentifier] ??
@@ -746,6 +782,7 @@ export abstract class PortfolioCalculator {
     return {
       ...overall,
       errors,
+      ...(fxWarnings ? { fxWarnings } : {}),
       historicalData,
       totalCashInBaseCurrency,
       totalInterestWithCurrencyEffect,
@@ -2330,6 +2367,102 @@ export abstract class PortfolioCalculator {
         ? new Big(0)
         : dividendInBaseCurrency.div(investedCapital)
     });
+  }
+
+  private getExchangeRateWarnings({
+    currencies,
+    endDateString,
+    exchangeRatesWithStatus
+  }: {
+    currencies: { [assetProfileIdentifier: string]: string };
+    endDateString: string;
+    exchangeRatesWithStatus?: ExchangeRatesWithStatus;
+  }): {
+    excludedAssetProfileIdentifiers: Set<string>;
+    fxWarnings?: ExchangeRateWarning[];
+  } {
+    const excludedAssetProfileIdentifiers = new Set<string>();
+
+    if (!exchangeRatesWithStatus) {
+      return { excludedAssetProfileIdentifiers };
+    }
+
+    const warnings = new Map<string, ExchangeRateWarning>();
+
+    for (const [assetProfileIdentifier, currency] of Object.entries(
+      currencies
+    )) {
+      if (currency === this.currency) {
+        continue;
+      }
+
+      const currencyPair = `${currency}${this.currency}`;
+
+      const estimatedDates = new Set(
+        exchangeRatesWithStatus.estimatedDates[currencyPair]
+      );
+
+      const missingDates = new Set(
+        exchangeRatesWithStatus.missingDates[currencyPair]
+      );
+
+      // Only the dates which are used for the valuation are relevant
+      const relevantDates = new Set([
+        ...(
+          this.activitiesByAssetProfileIdentifier[assetProfileIdentifier] ?? []
+        ).map(({ date }) => {
+          return date;
+        }),
+        endDateString
+      ]);
+
+      const getWarnings = (
+        dates: Set<string>,
+        type: ExchangeRateWarning['type']
+      ): ExchangeRateWarning[] => {
+        return Array.from(relevantDates)
+          .filter((date) => {
+            return dates.has(date);
+          })
+          .map((date) => {
+            return {
+              date,
+              type,
+              currencyFrom: currency,
+              currencyTo: this.currency
+            };
+          });
+      };
+
+      const missingWarnings = getWarnings(missingDates, 'MISSING');
+
+      if (missingWarnings.length > 0) {
+        excludedAssetProfileIdentifiers.add(assetProfileIdentifier);
+      }
+
+      // An excluded holding is left out of all values, so its estimated dates
+      // carry no information
+      const holdingWarnings =
+        missingWarnings.length > 0
+          ? missingWarnings
+          : getWarnings(estimatedDates, 'ESTIMATED');
+
+      for (const warning of holdingWarnings) {
+        warnings.set(
+          `${warning.currencyFrom}${warning.currencyTo}-${warning.date}-${warning.type}`,
+          warning
+        );
+      }
+    }
+
+    return {
+      excludedAssetProfileIdentifiers,
+      fxWarnings: sortBy(Array.from(warnings.values()), [
+        'date',
+        'currencyFrom',
+        'type'
+      ]).slice(0, PortfolioCalculator.MAX_EXCHANGE_RATE_WARNINGS)
+    };
   }
 
   @LogPerformance

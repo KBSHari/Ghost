@@ -15,11 +15,15 @@ import {
   getStartOfUtcDateOfYesterday,
   resetHours
 } from '@ghostfolio/common/helper';
-import { DataProviderHistoricalResponse } from '@ghostfolio/common/interfaces';
+import {
+  DataProviderHistoricalResponse,
+  UserSettings
+} from '@ghostfolio/common/interfaces';
 
 import { utc } from '@date-fns/utc';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import {
+  addDays,
   eachDayOfInterval,
   format,
   isBefore,
@@ -29,7 +33,18 @@ import {
 import { isNumber } from 'lodash-es';
 import ms from 'ms';
 
-import { ExchangeRatesByCurrency } from './interfaces/exchange-rate-data.interface';
+import {
+  ExchangeRateRow,
+  resolveExchangeRates
+} from './exchange-rate-resolver';
+import { ExchangeRateStoreService } from './exchange-rate-store.service';
+import {
+  ExchangeRatesByCurrency,
+  ExchangeRatesWithStatus
+} from './interfaces/exchange-rate-data.interface';
+
+// Rates before the requested range are needed to carry an earlier rate forward
+const EXCHANGE_RATE_LOOKBACK_IN_DAYS = 30;
 
 @Injectable()
 export class ExchangeRateDataService {
@@ -44,7 +59,9 @@ export class ExchangeRateDataService {
     private readonly dataProviderService: DataProviderService,
     private readonly marketDataService: MarketDataService,
     private readonly prismaService: PrismaService,
-    private readonly propertyService: PropertyService
+    private readonly propertyService: PropertyService,
+    @Optional()
+    private readonly exchangeRateStoreService?: ExchangeRateStoreService
   ) {}
 
   public getCurrencies() {
@@ -130,6 +147,110 @@ export class ExchangeRateDataService {
     return exchangeRatesByCurrency;
   }
 
+  @LogPerformance
+  public async getExchangeRatesByCurrencyWithStatus({
+    currencies,
+    endDate = new Date(),
+    startDate,
+    targetCurrency
+  }: {
+    currencies: string[];
+    endDate?: Date;
+    startDate: Date;
+    targetCurrency: string;
+  }): Promise<ExchangeRatesWithStatus> {
+    if (!startDate) {
+      return { estimatedDates: {}, missingDates: {}, rates: {} };
+    }
+
+    const dataSource = this.dataProviderService.getDataSourceForExchangeRates();
+    const queryStartDate = subDays(startDate, EXCHANGE_RATE_LOOKBACK_IN_DAYS);
+
+    const currencyPairs = new Map<
+      string,
+      { currencyFrom: string; currencyTo: string }
+    >();
+
+    const addCurrencyPair = (currencyFrom: string, currencyTo: string) => {
+      if (currencyFrom !== currencyTo) {
+        currencyPairs.set(`${currencyFrom}${currencyTo}`, {
+          currencyFrom,
+          currencyTo
+        });
+      }
+    };
+
+    for (const currency of currencies) {
+      addCurrencyPair(currency, targetCurrency);
+      addCurrencyPair(targetCurrency, currency);
+      addCurrencyPair(DEFAULT_CURRENCY, currency);
+    }
+
+    addCurrencyPair(DEFAULT_CURRENCY, targetCurrency);
+
+    const pairs = Array.from(currencyPairs.values());
+
+    let storedRates: ExchangeRateRow[] = [];
+
+    try {
+      const rows =
+        (await this.exchangeRateStoreService?.getRange({
+          endDate,
+          currencyPairs: pairs,
+          source: dataSource,
+          startDate: queryStartDate
+        })) ?? [];
+
+      storedRates = rows.map(({ currencyFrom, currencyTo, date, rate }) => {
+        return { currencyFrom, currencyTo, date, rate };
+      });
+    } catch {
+      this.logger.warn(
+        'Stored exchange rates could not be read, falling back to market data'
+      );
+    }
+
+    let marketDataRates: ExchangeRateRow[] = [];
+
+    try {
+      const marketData = await this.marketDataService.getRange({
+        assetProfileIdentifiers: pairs.map(({ currencyFrom, currencyTo }) => {
+          return { dataSource, symbol: `${currencyFrom}${currencyTo}` };
+        }),
+        dateQuery: { gte: queryStartDate, lt: addDays(endDate, 1) }
+      });
+
+      marketDataRates = marketData.flatMap(
+        ({ date, isCarriedForward, marketPrice, symbol }) => {
+          const currencyPair = currencyPairs.get(symbol);
+
+          return currencyPair
+            ? [
+                {
+                  date,
+                  isCarriedForward,
+                  currencyFrom: currencyPair.currencyFrom,
+                  currencyTo: currencyPair.currencyTo,
+                  rate: marketPrice
+                }
+              ]
+            : [];
+        }
+      );
+    } catch {
+      this.logger.warn('Market data exchange rates could not be read');
+    }
+
+    return resolveExchangeRates({
+      currencies,
+      endDate,
+      marketDataRates,
+      startDate,
+      storedRates,
+      targetCurrency
+    });
+  }
+
   public hasCurrencyPair(currency1: string, currency2: string) {
     return this.currencyPairs.some(({ symbol }) => {
       return (
@@ -162,6 +283,27 @@ export class ExchangeRateDataService {
     }
 
     await this.loadCurrencies();
+  }
+
+  public async isHistoricalFxEnabled(userId: string): Promise<boolean> {
+    if (!userId || !this.prismaService) {
+      return false;
+    }
+
+    try {
+      const settings = await this.prismaService.settings.findUnique({
+        select: { settings: true },
+        where: { userId }
+      });
+
+      return (
+        (settings?.settings as UserSettings)?.isExperimentalFeatures === true
+      );
+    } catch {
+      this.logger.warn('The experimental features setting could not be read');
+
+      return false;
+    }
   }
 
   public async loadCurrencies() {

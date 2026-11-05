@@ -107,6 +107,7 @@ export class PortfolioController {
     const {
       accounts,
       createdAt,
+      fxWarnings,
       hasErrors,
       holdings,
       markets,
@@ -211,12 +212,18 @@ export class PortfolioController {
       };
     }
 
+    // A warning reveals the currency and the date of a transaction
+    const canReadValues =
+      hasScope(impersonationScopes, scopes.portfolioReadValues) &&
+      !isRestrictedView(this.request.user);
+
     return {
       accounts,
       createdAt,
       hasError,
       holdings,
       platforms,
+      ...(fxWarnings && canReadValues ? { fxWarnings } : {}),
       markets: hasDetails
         ? markets
         : {
@@ -524,6 +531,8 @@ export class PortfolioController {
       isRestrictedView(this.request.user) ||
       this.request.user.settings.settings.viewMode === 'ZEN'
     ) {
+      delete performanceInformation.fxWarnings;
+
       performanceInformation.chart = performanceInformation.chart.map(
         ({
           date,

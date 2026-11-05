@@ -220,7 +220,8 @@ export class UserController {
       );
     }
 
-    const emitPortfolioChangedEvent = 'baseCurrency' in data;
+    const emitPortfolioChangedEvent =
+      'baseCurrency' in data || 'isExperimentalFeatures' in data;
 
     const userSettings: UserSettings = merge(
       {},

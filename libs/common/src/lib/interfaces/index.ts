@@ -15,6 +15,7 @@ import type { Benchmark } from './benchmark.interface';
 import type { Coupon } from './coupon.interface';
 import type { DataProviderInfo } from './data-provider-info.interface';
 import type { EnhancedAssetProfile } from './enhanced-asset-profile.interface';
+import type { ExchangeRateWarning } from './exchange-rate-warning.interface';
 import type { FilterGroup } from './filter-group.interface';
 import type { Filter } from './filter.interface';
 import type { FireCalculationCompleteEvent } from './fire-calculation-complete-event.interface';
@@ -183,6 +184,7 @@ export {
   DividendsResponse,
   EnhancedAssetProfile,
   ExchangeRateResponse,
+  ExchangeRateWarning,
   ExportResponse,
   Filter,
   FilterGroup,

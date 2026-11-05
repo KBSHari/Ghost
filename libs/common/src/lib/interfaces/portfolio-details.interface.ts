@@ -1,4 +1,5 @@
 import {
+  ExchangeRateWarning,
   PortfolioPosition,
   PortfolioSummary
 } from '@ghostfolio/common/interfaces';
@@ -17,6 +18,7 @@ export interface PortfolioDetails {
     };
   };
   createdAt: Date;
+  fxWarnings?: ExchangeRateWarning[];
   holdings: PortfolioPosition[];
   markets?: {
     [key in Market]: {

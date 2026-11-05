@@ -7,6 +7,7 @@ import {
 import { SubscriptionType } from '@ghostfolio/common/enums';
 import { canOpenHoldingDetail } from '@ghostfolio/common/helper';
 import {
+  ExchangeRateWarning,
   InvestmentItem,
   LineChartItem,
   PortfolioInvestmentsResponse,
@@ -23,6 +24,7 @@ import type {
 } from '@ghostfolio/common/types';
 import { PerformanceCalculationType } from '@ghostfolio/common/types/performance-calculation-type.type';
 import type { SymbolProfile } from '@ghostfolio/prisma/browser';
+import { GfFxRateWarningComponent } from '@ghostfolio/ui/fx-rate-warning';
 import { translate } from '@ghostfolio/ui/i18n';
 import { GfInvestmentChartComponent } from '@ghostfolio/ui/investment-chart';
 import { GfPremiumIndicatorComponent } from '@ghostfolio/ui/premium-indicator';
@@ -62,6 +64,7 @@ import { forkJoin } from 'rxjs';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     GfBenchmarkComparatorComponent,
+    GfFxRateWarningComponent,
     GfInvestmentChartComponent,
     GfPremiumIndicatorComponent,
     GfToggleComponent,
@@ -85,6 +88,7 @@ export class GfAnalysisPageComponent implements OnInit {
   protected bottom3: PortfolioPosition[];
   protected dividendsByGroup: InvestmentItem[];
   protected readonly dividendTimelineDataLabel = $localize`Dividend`;
+  protected fxWarnings: ExchangeRateWarning[] = [];
   protected hasPermissionToReadAiPrompt: boolean;
   protected investments: InvestmentItem[];
   protected readonly investmentTimelineDataLabel = $localize`Invested Capital`;
@@ -356,8 +360,9 @@ export class GfAnalysisPageComponent implements OnInit {
         range: this.user?.settings?.dateRange ?? DEFAULT_DATE_RANGE
       })
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(({ chart, dateOfFirstActivity, performance }) => {
+      .subscribe(({ chart, dateOfFirstActivity, fxWarnings, performance }) => {
         this.dateOfFirstActivity = dateOfFirstActivity ?? new Date();
+        this.fxWarnings = fxWarnings ?? [];
 
         this.investments = [];
         this.performance = performance;
